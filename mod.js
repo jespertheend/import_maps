@@ -255,7 +255,7 @@ export function resolveModuleSpecifier(importMap, baseUrl, specifier) {
  * @param {URL?} asURL
  * @param {SpecifierMap} specifierMap
  */
-function resolveImportsMatch(normalizedSpecifier, asURL, specifierMap){
+function resolveImportsMatch(normalizedSpecifier, asURL, specifierMap) {
 	// 1. For each specifierKey → resolutionResult of specifierMap,
 	for (const [specifierKey, resolutionResult] of Object.entries(specifierMap)) {
 		// 1. If specifierKey is normalizedSpecifier, then:
