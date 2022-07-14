@@ -286,7 +286,7 @@ function resolveImportsMatch(normalizedSpecifier, asURL, specifierMap) {
 			normalizedSpecifier.startsWith(specifierKey) &&
 			// * either asURL is null, or asURL is special
 			(!asURL ||
-				["ftp", "file", "http", "https", "ws", "wss"].includes(asURL.protocol))
+				["ftp:", "file:", "http:", "https:", "ws:", "wss:"].includes(asURL.protocol))
 		) {
 			// 1. If resolutionResult is null, then throw a TypeError indicating that resolution of specifierKey was blocked by a null entry.
 			if (resolutionResult === null) {
