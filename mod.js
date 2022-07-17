@@ -74,6 +74,17 @@ export function parseImportMap(input, baseUrl) {
 }
 
 /**
+ * Creates an empty import map.
+ */
+export function createEmptyImportMap() {
+	/** @type {ParsedImportMap} */
+	const importMap = {
+		imports: {},
+	};
+	return importMap;
+}
+
+/**
  * @param {Object.<string, string>} originalMap
  * @param {URL} baseUrl
  * @returns {SpecifierMap}
