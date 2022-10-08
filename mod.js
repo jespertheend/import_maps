@@ -37,6 +37,18 @@
  */
 
 /**
+ * Parses an import map json object that can be used later for resolving specifiers.
+ *
+ * ## Example usage
+ *
+ * ```js
+ * const baseUrl = new URL(import.meta.url);
+ * const importMap = parseImportMap({
+ * 	imports: {
+ * 		"std/": "https://deno.land/std/",
+ * 	}
+ * }, baseUrl);
+ * ```
  * @param {ImportMapData} input
  * @param {URL} baseUrl
  * @returns {ParsedImportMap}
@@ -173,7 +185,21 @@ function sortAndNormalizeModuleSpecifierMap(originalMap, baseURL) {
 }
 
 /**
- * Creates an empty import map.
+ * Creates an empty import map which you can use in scenarios where no import
+ * map was provided. For instance, you could use this as a place holder.
+ *
+ * ## Example usage
+ *
+ * ```js
+ * let importMap = createEmptyImportMap();
+ * if (userImportMapPath != null) {
+ * 	const text = await Deno.readTextFile(userImportMapPath);
+ * 	const json = JSON.parse(text);
+ * 	importMap = parseImportMap(json, baseUrl);
+ * }
+ *
+ * resolveModuleSpecifier(importMap, baseUrl, "specifier");
+ * ```
  */
 export function createEmptyImportMap() {
 	/** @type {ParsedImportMap} */
@@ -376,6 +402,21 @@ function parseUrlLikeImportSpecifier(specifier, baseUrl) {
 }
 
 /**
+ * Resolves a module specifier, i.e. the string inside an import statement.
+ *
+ * ## Example usage
+ *
+ * ```js
+ * const baseUrl = new URL(import.meta.url);
+ * const parsedImportMap = parseImportMap({
+ *     imports: {
+ *         "std/": "https://deno.land/std/",
+ *     }
+ * }, baseUrl);
+ *
+ * const resolved = resolveModuleSpecifier(parsedImportMap, baseUrl, "std/http/mod.ts");
+ * console.log(resolved); // URL { href: "https://deno.land/std/http/mod.ts" }
+ * ```
  * @param {ParsedImportMap} importMap
  * @param {URL} baseUrl
  * @param {string} specifier

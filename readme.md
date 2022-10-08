@@ -12,7 +12,7 @@ const baseUrl = new URL(import.meta.url);
 const parsedImportMap = parseImportMap({
 	imports: {
 		"std/": "https://deno.land/std/",
-	}
+	},
 }, baseUrl);
 
 const resolved = resolveModuleSpecifier(parsedImportMap, baseUrl, "std/http/mod.ts");
