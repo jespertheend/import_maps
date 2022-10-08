@@ -46,6 +46,7 @@ Deno.test({
 				foo: new URL("https://example.com/foo"),
 				bar: new URL("https://example.com/bar"),
 			},
+			scopes: {},
 		});
 	},
 });
@@ -69,6 +70,7 @@ Deno.test({
 					"https://example.com/base/newbar",
 				),
 			},
+			scopes: {},
 		});
 	},
 });

@@ -7,6 +7,15 @@
 /**
  * @typedef ImportMapData
  * @property {Object.<string, string>} [imports]
+ * @property {ImportMapScopesData} [scopes]
+ */
+
+/**
+ * @typedef {Object.<string, ImportMapPotentialSpecifierMapData>} ImportMapScopesData
+ */
+
+/**
+ * @typedef {Object.<string, string>} ImportMapPotentialSpecifierMapData
  */
 
 /**
@@ -16,6 +25,15 @@
 /**
  * @typedef ParsedImportMap
  * @property {SpecifierMap} imports
+ * @property {ParsedImportMapScopesData} scopes
+ */
+
+/**
+ * @typedef {Record<string, ParsedImportMapScopesSpecifierMapData>} ParsedImportMapScopesData
+ */
+
+/**
+ * @typedef {Record<string, URL | null>} ParsedImportMapScopesSpecifierMapData
  */
 
 /**
@@ -54,23 +72,103 @@ export function parseImportMap(input, baseUrl) {
 			parsed.imports,
 			baseUrl,
 		);
+	}
 
-		// 3 - 6 TODO
+	// 5. Let sortedAndNormalizedScopes be an empty ordered map.
+	/** @type {ParsedImportMapScopesData} */
+	let sortedAndNormalizedScopes = {};
 
-		// 7. If parsed’s keys contains any items besides "imports" or "scopes", report a warning to the console that an invalid top-level key was present in the import map.
-		for (const key of Object.keys(parsed)) {
-			if (key !== "imports") {
-				console.warn(
-					`An invalid top-level key was present in the import map: ${key}`,
-				);
-			}
+	// 6. If parsed["scopes"] exists, then:
+	if (parsed.scopes) {
+		// 1. If parsed["scopes"] is not an ordered map, then throw a TypeError indicating that the value for the "scopes" top-level key needs to be a JSON object.
+		if (typeof parsed.scopes != "object") {
+			throw new TypeError(`The value for the "scopes" property needs to be a JSON object.`);
+		}
+
+		// 2. Set sortedAndNormalizedScopes to the result of sorting and normalizing scopes given parsed["scopes"] and baseURL.
+		sortedAndNormalizedScopes = sortAndNormalizeScopes(parsed.scopes, baseUrl);
+	}
+
+	// 7. If parsed’s keys contains any items besides "imports" or "scopes", report a warning to the console that an invalid top-level key was present in the import map.
+	for (const key of Object.keys(parsed)) {
+		if (key != "imports" && key != "scopes") {
+			console.warn(
+				`An invalid top-level key was present in the import map: ${key}`,
+			);
 		}
 	}
 
 	// 8. Return the import map whose imports are sortedAndNormalizedImports and whose scopes scopes are sortedAndNormalizedScopes.
 	return {
 		imports: sortedAndNormalizedImports,
+		scopes: sortedAndNormalizedScopes,
 	};
+}
+
+/**
+ * @param {ImportMapPotentialSpecifierMapData} originalMap
+ * @param {URL} baseURL
+ */
+function sortAndNormalizeModuleSpecifierMap(originalMap, baseURL) {
+	// 1. Let normalized be an empty ordered map.
+	/** @type {ParsedImportMapScopesSpecifierMapData} */
+	const normalized = {};
+
+	// 2. For each specifierKey → value of originalMap:
+	for (const [specifierKey, value] of Object.entries(originalMap)) {
+		// 1. Let normalizedSpecifierKey be the result of normalizing a specifier key given specifierKey and baseURL.
+		const normalizedSpecifierKey = normalizeSpecifierKey(specifierKey, baseURL);
+
+		// 2. If normalizedSpecifierKey is null, then continue.
+		if (normalizedSpecifierKey == null) continue;
+
+		// 3. If value is not a string, then:
+		if (typeof value != "string") {
+			// 1. The user agent may report a warning to the console indicating that addresses need to be strings.
+			console.warn(`The value for ${specifierKey} is not a string. Scopes addresses need to be strings.`);
+
+			// 2. Set normalized[normalizedSpecifierKey] to null.
+			normalized[normalizedSpecifierKey] = null;
+
+			// 3. Continue
+			continue;
+		}
+
+		// 4. Let addressURL be the result of resolving a URL-like module specifier given value and baseURL.
+		const addressURL = resolveUrlLikeModuleSpecifier(value, baseURL);
+
+		// 5. If addressURL is null, then:
+		if (addressURL == null) {
+			// 1. The user agent may report a warning to the console indicating that the address was invalid.
+			console.warn(`The address "${value}" is invalid.`);
+
+			// 2. Set normalized[normalizedSpecifierKey] to null.
+			normalized[normalizedSpecifierKey] = null;
+
+			// 3. Continue.
+			continue;
+		}
+
+		// 6. If specifierKey ends with U+002F (/), and the serialization of addressURL does not end with U+002F (/), then:
+		if (specifierKey.endsWith("/") && !addressURL.href.endsWith("/")) {
+			// 1. The user agent may report a warning to the console indicating that an invalid address was given for the specifier key specifierKey; since specifierKey ends with a slash, the address needs to as well.
+			console.warn(`An invalid address was given for "${specifierKey}". Since the specifier ended in a slash, the address needs to as well.`);
+
+			// 2. Set normalized[normalizedSpecifierKey] to null.
+			normalized[normalizedSpecifierKey] = null;
+
+			// 3. Continue.
+			continue;
+		}
+
+		// 7. Set normalized[normalizedSpecifierKey] to addressURL.
+		normalized[normalizedSpecifierKey] = addressURL;
+
+	}
+
+	// 3. Return the result of sorting in descending order normalized, with an entry a being less than an entry b if a's key is code unit less than b's key.
+	const sortedEntries = sortObject(normalized);
+	return sortedEntries;
 }
 
 /**
@@ -80,6 +178,7 @@ export function createEmptyImportMap() {
 	/** @type {ParsedImportMap} */
 	const importMap = {
 		imports: {},
+		scopes: {},
 	};
 	return importMap;
 }
@@ -135,7 +234,7 @@ function sortAndNormalizeSpecifierMap(originalMap, baseUrl) {
 		if (specifierKey.endsWith("/") && !addressURL.href.endsWith("/")) {
 			// 1. Report a warning to the console that an invalid address was given for the specifier key specifierKey; since specifierKey ended in a slash, the address needs to as well.
 			console.warn(
-				`An invalid address was given for ${specifierKey}; since the specifier ended in a slash, the address needs to as well.`,
+				`An invalid address was given for "${specifierKey}". Since the specifier ended in a slash, the address needs to as well.`,
 			);
 
 			// 2. Set normalized[normalizedSpecifierKey] to null.
@@ -149,13 +248,65 @@ function sortAndNormalizeSpecifierMap(originalMap, baseUrl) {
 		normalized[normalizedSpecifierKey] = addressURL;
 	}
 
-	// 3. Return the result of sorting normalized, with an entry a being less than an entry b if b’s key is code unit less than a’s key.
-	const sortedEntries = Object.entries(normalized).sort(([a], [b]) => {
+	// 3. Return the result of sorting in descending order normalized, with an entry a being less than an entry b if a's key is code unit less than b's key.
+	/** @type {SpecifierMap} */
+	const sortedEntries = sortObject(normalized);
+	return sortedEntries;
+}
+
+/**
+ * @param {ImportMapScopesData} originalMap
+ * @param {URL} baseURL
+ */
+function sortAndNormalizeScopes(originalMap, baseURL) {
+	// 1. Let normalized be an empty ordered map.
+	/** @type {ParsedImportMapScopesData} */
+	const normalized = {};
+
+	// 2. For each scopePrefix → potentialSpecifierMap of originalMap:
+	for (const [scopePrefix, potentialSpecifierMap] of Object.entries(originalMap)) {
+		// 1. If potentialSpecifierMap is not an ordered map, then throw a TypeError indicating that the value of the scope with prefix scopePrefix needs to be a JSON object.
+		if (typeof potentialSpecifierMap != "object" || potentialSpecifierMap == null) {
+			throw new TypeError(`Value of the scope with prefix ${scopePrefix} is not a JSON object.`);
+		}
+
+		// 2. Let scopePrefixURL be the result of URL parsing scopePrefix with baseURL.
+		let scopePrefixURL;
+		try {
+			scopePrefixURL = new URL(scopePrefix, baseURL);
+
+			// 3. If scopePrefixURL is failure, then:
+		} catch {
+			// 1. The user agent may report a warning to the console that the scope prefix URL was not parseable.
+			console.warn(`The scope prefix for ${scopePrefix} was not parseable.`);
+
+			// 2. Continue
+			continue;
+		}
+
+		// 4. Let normalizedScopePrefix be the serialization of scopePrefixURL.
+		const normalizedScopePrefix = scopePrefixURL.href;
+
+		// 5. Set normalized[normalizedScopePrefix] to the result of sorting and normalizing a module specifier map given potentialSpecifierMap and baseURL.
+		normalized[normalizedScopePrefix] = sortAndNormalizeModuleSpecifierMap(potentialSpecifierMap, baseURL);
+	}
+
+	// 3. Return the result of sorting in descending order normalized, with an entry a being less than an entry b if a's key is code unit less than b's key.
+	const sortedEntries = sortObject(normalized);
+	return sortedEntries;
+}
+
+/**
+ * @template T
+ * @param {Record<string, T>} map
+ */
+function sortObject(map) {
+	const sortedEntries = Object.entries(map).sort(([a], [b]) => {
 		if (a < b) return -1;
 		if (a > b) return 1;
 		return 0;
 	});
-	/** @type {SpecifierMap} */
+	/** @type {Record<string, T>} */
 	const newSpecifierMap = {};
 	for (const [key, value] of sortedEntries) {
 		newSpecifierMap[key] = value;
@@ -232,30 +383,41 @@ export function resolveModuleSpecifier(importMap, baseUrl, specifier) {
 	// We'll skip step 1 - 4 and instead the import map and base url are taken
 	// as parameters directly.
 
-	// 5. TODO
+	// 6. Let baseURLString be baseURL, serialized.
+	const baseURLString = new URL(baseUrl).href;
 
-	// 6. Let asURL be the result of parsing a URL-like import specifier given specifier and baseURL.
+	// 7. Let asURL be the result of parsing a URL-like import specifier given specifier and baseURL.
 	const asURL = parseUrlLikeImportSpecifier(specifier, baseUrl);
 
-	// 7. Let normalizedSpecifier be the serialization of asURL, if asURL is non-null; otherwise, specifier.
+	// 8. Let normalizedSpecifier be the serialization of asURL, if asURL is non-null; otherwise, specifier.
 	const normalizedSpecifier = asURL ? asURL.href : specifier;
 
-	// 8 TODO
+	// 9. For each scopePrefix → scopeImports of importMap's scopes:
+	for (const [scopePrefix, scopeImports] of Object.entries(importMap.scopes)) {
+		// 1. If scopePrefix is baseURLString, or if scopePrefix ends with U+002F (/) and scopePrefix is a code unit prefix of baseURLString, then:
+		if (scopePrefix == baseURLString || scopePrefix.endsWith("/") && baseURLString.startsWith(scopePrefix)) {
+			// 1. Let scopeImportsMatch be the result of resolving an imports match given normalizedSpecifier, asURL, and scopeImports.
+			const scopeImportsMatch = resolveImportsMatch(normalizedSpecifier, asURL, scopeImports);
 
-	// 9. Let topLevelImportsMatch be the result of resolving an imports match given normalizedSpecifier, asURL, and importMap’s imports.
+			// 2. If scopeImportsMatch is not null, then return scopeImportsMatch.
+			if (scopeImportsMatch != null) return scopeImportsMatch;
+		}
+	}
+
+	// 10. Let topLevelImportsMatch be the result of resolving an imports match given normalizedSpecifier, asURL, and importMap’s imports.
 	const topLevelImportsMatch = resolveImportsMatch(
 		normalizedSpecifier,
 		asURL,
 		importMap.imports,
 	);
 
-	// 10. If topLevelImportsMatch is not null, then return topLevelImportsMatch.
+	// 11. If topLevelImportsMatch is not null, then return topLevelImportsMatch.
 	if (topLevelImportsMatch) return topLevelImportsMatch;
 
-	// 11. If asURL is not null, then return asURL.
+	// 12. If asURL is not null, then return asURL.
 	if (asURL) return asURL;
 
-	// 12. Throw a TypeError indicating that specifier was a bare specifier, but was not remapped to anything by importMap.
+	// 13. Throw a TypeError indicating that specifier was a bare specifier, but was not remapped to anything by importMap.
 	throw new TypeError(
 		`Relative import path "${specifier}" not prefixed with / or ./ or ../`,
 	);
@@ -353,4 +515,37 @@ function resolveImportsMatch(normalizedSpecifier, asURL, specifierMap) {
 
 	// 2. Return null.
 	return null;
+}
+
+/**
+ * @param {string} specifier
+ * @param {URL} baseURL
+ */
+function resolveUrlLikeModuleSpecifier(specifier, baseURL) {
+	// 1. If specifier starts with "/", "./", or "../", then:
+	if (specifier.startsWith("/") || specifier.startsWith("./") || specifier.startsWith("../")) {
+		// 1. Let url be the result of URL parsing specifier with baseURL.
+		let url;
+		try {
+			url = new URL(specifier, baseURL);
+		} catch {
+			// 2. If url is failure, then return null.
+			return null;
+		}
+
+		// 3. Return url.
+		return url;
+	}
+
+	// 2. Let url be the result of URL parsing specifier (with no base URL).
+	let url;
+	try {
+		url = new URL(specifier);
+	} catch {
+		// 3. If url is failure, then return null.
+		return null;
+	}
+
+	// 4. Return url.
+	return url;
 }

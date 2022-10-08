@@ -9,6 +9,7 @@ Deno.test({
 			imports: {
 				"https://example.com/": new URL("file:///foo/bar/"),
 			},
+			scopes: {},
 		};
 
 		const baseUrl = new URL("file:///foo/script.js");

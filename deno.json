@@ -1,5 +1,8 @@
 {
 	"importMap": "import_map.json",
+	"compilerOptions": {
+		"checkJs": true
+	},
 	"fmt": {
 		"options": {
 			"indentWidth": 4,
