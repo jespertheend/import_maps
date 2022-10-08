@@ -152,7 +152,9 @@ function sortAndNormalizeModuleSpecifierMap(originalMap, baseURL) {
 		// 6. If specifierKey ends with U+002F (/), and the serialization of addressURL does not end with U+002F (/), then:
 		if (specifierKey.endsWith("/") && !addressURL.href.endsWith("/")) {
 			// 1. The user agent may report a warning to the console indicating that an invalid address was given for the specifier key specifierKey; since specifierKey ends with a slash, the address needs to as well.
-			console.warn(`An invalid address was given for "${specifierKey}". Since the specifier ended in a slash, the address needs to as well.`);
+			console.warn(
+				`An invalid address was given for "${specifierKey}". Since the specifier ended in a slash, the address needs to as well.`,
+			);
 
 			// 2. Set normalized[normalizedSpecifierKey] to null.
 			normalized[normalizedSpecifierKey] = null;
@@ -163,7 +165,6 @@ function sortAndNormalizeModuleSpecifierMap(originalMap, baseURL) {
 
 		// 7. Set normalized[normalizedSpecifierKey] to addressURL.
 		normalized[normalizedSpecifierKey] = addressURL;
-
 	}
 
 	// 3. Return the result of sorting in descending order normalized, with an entry a being less than an entry b if a's key is code unit less than b's key.
