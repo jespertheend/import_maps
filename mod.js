@@ -329,8 +329,8 @@ function sortAndNormalizeScopes(originalMap, baseURL) {
  */
 function sortObject(map) {
 	const sortedEntries = Object.entries(map).sort(([a], [b]) => {
-		if (a < b) return -1;
-		if (a > b) return 1;
+		if (a > b) return -1;
+		if (a < b) return 1;
 		return 0;
 	});
 	/** @type {Record<string, T>} */

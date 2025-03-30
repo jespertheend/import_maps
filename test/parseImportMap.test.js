@@ -74,3 +74,31 @@ Deno.test({
 		});
 	},
 });
+
+Deno.test({
+	name: "parseImportMap() with relative identifiers",
+	fn() {
+		const baseUrl = new URL("https://example.com/base/");
+		const result = parseImportMap({
+			imports: {
+				"$a/": "https://example.com/a/",
+				"$a/b/": "https://otherexample.com/a/b/",
+			},
+		}, baseUrl);
+		const arr = Object.entries(result.imports);
+		assertEquals(arr, [
+			[
+				"$a/b/",
+				new URL(
+					"https://otherexample.com/a/b/",
+				),
+			],
+			[
+				"$a/",
+				new URL(
+					"https://example.com/a/",
+				),
+			],
+		]);
+	},
+});
